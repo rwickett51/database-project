@@ -4,12 +4,32 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class GUI extends javax.swing.JFrame{
+public class GUI extends javax.swing.JFrame {
+
+
+
+    //Basic Database Info
+    private String currentUser = "username0";
+    private String currentCart = "cart0";
+    private Connect conn;
+
+    JMenuBar menuBar;
+    JMenu menu, submenu;
+    JMenuItem menuItem;
+
+    //Main Frames
+    Container c;
+    Container content;
+    private CardLayout cl;
+    private JPanel mainFrame;
+    private JPanel cartFrame;
+
 
     // Create Splits
     private JSplitPane splitPane;
@@ -37,33 +57,17 @@ public class GUI extends javax.swing.JFrame{
     // Top Center Components
     private Box centerPanel;
 
-    JToolBar toolBar;
+    //Toolbar
+    private JToolBar toolBar;
+    private JButton tbMainButton;
+    private JButton tbCartButton;
 
-    private List<String[]> ResultSetToArray(ResultSet result) {
-        List<String[]> table = new ArrayList<>();
-        try {
-            int nCol = result.getMetaData().getColumnCount();
-
-            while (result.next()) {
-                String[] row = new String[nCol];
-                for (int iCol = 1; iCol <= nCol; iCol++) {
-                    Object obj = result.getObject(iCol);
-                    row[iCol - 1] = (obj == null) ? null : obj.toString();
-                }
-                table.add(row);
-            }
-
-        } catch(Exception e) {
-
-        }
-
-        return table;
-    }
+    // Create Cart Components
+    private JScrollPane cartScrollPane;
+    private Box cartBox;
 
     private void cardsSearch() {
         try {
-            Connect conn = new Connect();
-            conn.connect();
             List<Card> data = conn.GetCards(searchBar.getText());
             // Loop through all rows
             box.removeAll();
@@ -76,7 +80,7 @@ public class GUI extends javax.swing.JFrame{
                     @Override
                     public void actionPerformed(ActionEvent e) {
                         loadCard(data.get(finalI));
-                        loadListings(conn, data.get(finalI).cardID);
+                        loadListings(data.get(finalI).cardID);
                     }
                 });
                 temp.setPreferredSize(new Dimension(100, 150));
@@ -102,36 +106,97 @@ public class GUI extends javax.swing.JFrame{
         centerPanel.revalidate();
     }
 
-    private void loadListings(Connect conn, String cardID) {
+    private void setCart() {
+        List<CartItem> data = conn.GetCart(currentUser);
+        System.out.println("Items in cart: " + data.size());
+        cartBox.removeAll();
+        for(int i = 0; i < data.size(); i++) {
+            JButton bt = new JButton(data.get(i).price);
+            cartBox.add(bt);
+        }
+    }
+
+    private void switchMainPanel(int activePanel) {
+        if (activePanel == 1) {
+            cl.show(content, "Main");
+        } else if (activePanel == 2) {
+            cl.show(content, "Cart");
+            setCart();
+        }
+        repaint();
+    }
+
+    private void loadListings(String cardID) {
         List<Listing> data = conn.GetListings(cardID);
         System.out.println(data.size());
         listingBox.removeAll();
         for(int i = 0; i < data.size(); i++) {
             JPanel tempPanel = new JPanel();
             Button temp = new Button("Add to cart");
+            int finalI = i;
+            temp.addActionListener(e -> {
+                conn.Add2Cart(data.get(finalI).id, currentCart, data.get(finalI).cardID, 1);
+                loadListings(data.get(finalI).cardID);
+                switchMainPanel(2);
+            });
             JLabel tempLabelPrice = new JLabel(data.get(i).price);
             //tempLabelPrice.setOpaque(true);
             tempPanel.add(temp);
             tempPanel.add(tempLabelPrice);
             tempPanel.setPreferredSize(new Dimension(100, 150));
             listingBox.add(tempPanel);
-            listingPanel.revalidate();
+
         }
+        repaint();
     }
 
 
-    public GUI() {
 
-        //Initialize Frame
-        setName("Card Database");
+
+
+
+    public GUI() {
+        conn = new Connect();
+
+        conn.connect();
+
+
+
+        //Initialize Main Frames
+        menuBar = new JMenuBar();
+        menu = new JMenu("User");
+        menu.setMnemonic(KeyEvent.VK_A);
+
+        menu.getAccessibleContext().setAccessibleDescription("Menu");
+        menuBar.add(menu);
+
+        setJMenuBar(menuBar);
+
+        content = new Container();
+        c = getContentPane();
+        cl = new CardLayout();
+
+        mainFrame = new JPanel();
+        cartFrame = new JPanel();
+
+        content.setLayout(cl);
+
+        c.setLayout(new BorderLayout());
+        c.add(content, BorderLayout.CENTER);
+
+        content.add("Main", mainFrame);
+        content.add("Cart", cartFrame);
+
+        // Initialize Frame
+        setTitle("Card Marketplace");
         setResizable(false);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setPreferredSize(new Dimension(800, 600));
 
-        getContentPane().setLayout(new BorderLayout(5, 5));
+        mainFrame.setLayout(new BorderLayout(5, 5));
 
 
-        //Initialize Panels
+        // Initialize Panels
         splitPane = new JSplitPane();
         topPanel = new JPanel();
         bottomPanel = new JPanel();
@@ -139,7 +204,7 @@ public class GUI extends javax.swing.JFrame{
         topLeftPanel = new JPanel();
         topRightPanel = new JPanel();
 
-        //Setup Panels
+        // Setup Panels
         topLeftPanel.setPreferredSize(new Dimension(200, 410));
         topRightPanel.setPreferredSize(new Dimension(200, 410));
         bottomPanel.setBackground(Color.GRAY);
@@ -150,10 +215,10 @@ public class GUI extends javax.swing.JFrame{
         topPanel.add(topLeftPanel, BorderLayout.WEST);
         topPanel.add(topCenterPanel, BorderLayout.CENTER);
         topPanel.add(topRightPanel, BorderLayout.EAST);
-        getContentPane().add(topPanel, BorderLayout.CENTER);
-        getContentPane().add(bottomPanel, BorderLayout.SOUTH);
+        mainFrame.add(topPanel, BorderLayout.CENTER);
+        mainFrame.add(bottomPanel, BorderLayout.SOUTH);
 
-        //Setup Bottom Layout
+        // Setup Bottom Layout
         searchLabel = new JLabel("Search:");
         searchBar = new JTextField();
         searchBar.setPreferredSize(new Dimension(200, 25));
@@ -187,20 +252,75 @@ public class GUI extends javax.swing.JFrame{
         topCenterPanel.add(centerPanel);
 
         // Setup Toolbar
+
+
         toolBar = new JToolBar("TaskBar", JToolBar.HORIZONTAL);
         toolBar.setLayout(new GridLayout(1, 12));
         toolBar.setSize(getWidth(), 30);
         toolBar.setFloatable(false);
-        toolBar.add(new JButton("Toolbar 1"));
-        toolBar.add(new JButton("Toolbar 2"));
+        JButton tbMainButton = new JButton("Search Listings");
+
+
+        tbMainButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                switchMainPanel(1);
+            }
+        });
+        JButton tbCartButton = new JButton("View Cart");
+        tbCartButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                switchMainPanel(2);
+            }
+        });
+        toolBar.add(tbMainButton);
+        toolBar.add(tbCartButton);
         toolBar.setOrientation(JToolBar.HORIZONTAL);
-        getContentPane().add(toolBar, BorderLayout.NORTH);
+        c.add(toolBar, BorderLayout.NORTH);
 
         //Setup Listing Panel
         listingBox = new Box(BoxLayout.Y_AXIS);
         listingPanel = new JScrollPane(listingBox);
         topRightPanel.add(listingPanel);
         listingPanel.setPreferredSize(new Dimension(topRightPanel.getPreferredSize().width, topRightPanel.getPreferredSize().height));
+
+
+        // Setup Cart Panel
+        cartBox = new Box(BoxLayout.Y_AXIS);
+
+        cartScrollPane = new JScrollPane(cartBox);
+        cartScrollPane.setPreferredSize(new Dimension(c.getPreferredSize().width, c.getPreferredSize().height));
+        cartScrollPane.setBackground(Color.GRAY);
+
+        cartFrame.add(cartScrollPane);
+
+        //Setup Menu
+        //a group of JMenuItems
+        menuItem = new JMenuItem("Change user");
+        //menuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_1, ActionEvent.ALT_MASK));
+        //menuItem.getAccessibleContext().setAccessibleDescription("This doesn't really do anything");
+        menu.add(menuItem);
+
+        menuItem.addActionListener(e -> {
+            String response = JOptionPane.showInputDialog(c, "What user would you like to manage?", null);
+            System.out.println("Response: " + response);
+            if (response == null) {
+                System.out.println("No username entered");
+                return;
+            };
+            User user = conn.GetUser(response);
+            if (user.username == null) {
+                JOptionPane.showInternalMessageDialog(c, "Username not found");
+                System.out.println("Username not found");
+                return;
+            }
+            System.out.println("User changed to: " + user.username);
+            currentUser = response;
+            currentCart = user.cartID;
+            setCart();
+            cartBox.revalidate();
+        });
 
         // Pack GUI and center
         pack();

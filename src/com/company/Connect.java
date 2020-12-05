@@ -12,7 +12,7 @@ public class Connect {
      * Connect to a sample database
      */
 
-    public Connection conn = null;
+    public Connection conn;
     private final String filename;
 
     public Connect() {
@@ -61,30 +61,28 @@ public class Connect {
         }
     }
 
-
-    public ResultSet GetCart(String username) {
-        ResultSet rs = null;
+    public void Add2Cart(String listingID, String cartID, String cardID, int quantity) {
+        System.out.println("ADDING TO CART");
         try {
-            String sql = "SELECT * FROM Cart INNER JOIN CartItems ON Cart.id=CartItems.cartID\n" +
-                    "INNER JOIN Card ON Card.id=CartItems.cardID WHERE Cart.username= \'" + username +"\'";
-            Statement stmt = conn.createStatement();
-            System.out.println("EXEC SQL: " + sql);
-            rs = stmt.executeQuery(sql);
-        } catch (SQLException e) {
-            System.out.println("SQL error: " + e.getMessage());
-        } catch (Exception e) {
-            System.out.println("Java error: " + e.getMessage());
-        }
-        return rs;
-    }
 
-    public void Add2Cart(String cartID, String cardID, int quantity) {
-        try {
             String sql = "INSERT INTO CartItems (cartID, cardID, quantity)"
-                    + "VALUES ('" + cartID + "', '" + cardID + "', '" + String.valueOf(quantity) + "')";
-            Statement stmt = conn.createStatement();
-            stmt.executeUpdate(sql);
-            conn.commit();
+                    + " VALUES (?, ?, ?)";
+
+
+            PreparedStatement pst = conn.prepareStatement(sql);
+            pst.setString(1, cartID);
+            pst.setString(2, cardID);
+            pst.setString(3, String.valueOf(quantity));
+            System.out.println("EXEC SQL: " + sql);
+            int rowsaffected = pst.executeUpdate();
+            System.out.println("Rows affected: " + rowsaffected);
+
+
+            sql = "UPDATE Listing SET inCart=1 WHERE id='" + listingID + "';";
+            System.out.println("EXEC SQL: " + sql);
+
+            pst = conn.prepareStatement(sql);
+            pst.executeUpdate();
         } catch (SQLException e) {
             System.out.println("SQL error: " + e.getMessage());
         } catch (Exception e) {
@@ -147,10 +145,10 @@ public class Connect {
     public List<Listing> GetListings(String cardID) {
         ResultSet rs = null;
         try {
-            String sql = "SELECT * FROM Listing INNER JOIN Card ON Card.id=Listing.cardID WHERE Listing.cardID='" + cardID + "';";
+            String sql = "SELECT * FROM Listing INNER JOIN Card ON Card.id=Listing.cardID WHERE Listing.cardID='" + cardID + "' AND Listing.inCart = 0 AND Listing.isSold = 0;";
             Statement stmt  = conn.createStatement();
             System.out.println("EXEC SQL: " + sql);
-            rs    = stmt.executeQuery(sql);
+            rs = stmt.executeQuery(sql);
         } catch (SQLException e) {
             System.out.println("SQL error: " + e.getMessage());
         } catch (Exception e) {
@@ -159,7 +157,7 @@ public class Connect {
         List<Listing> table = new ArrayList<>();
         try {
             while (rs.next()) {
-                int CardID = rs.getInt("cardID");
+                String CardID = rs.getString("cardID");
 
                 String username = rs.getString("username");
 
@@ -174,6 +172,65 @@ public class Connect {
 
         } catch(Exception e) {System.out.println("Java error: " + e.getMessage());}
         System.out.println(table.size());
+        return table;
+    }
+
+    public User GetUser(String username) {
+        ResultSet rs = null;
+        try {
+            String sql = "SELECT Users.username, Users.password, Cart.id as cartID FROM Users INNER JOIN Cart ON Cart.username = Users.username WHERE Users.username='" + username + "' LIMIT 1;";
+            Statement stmt  = conn.createStatement();
+            System.out.println("EXEC SQL: " + sql);
+            rs = stmt.executeQuery(sql);
+        } catch (SQLException e) {
+            System.out.println("SQL error: " + e.getMessage());
+        } catch (Exception e) {
+            System.out.println("Java error: " + e.getMessage());
+        }
+
+        try {
+            while (rs.next()) {
+                return new User(rs.getString("username"), rs.getString("password"), rs.getString("cartID"));
+
+            }
+        } catch(Exception e) {System.out.println("Java error: " + e.getMessage());}
+
+        return new User(null, null, null);
+    }
+
+    public List<CartItem> GetCart(String username) {
+        ResultSet rs = null;
+        try {
+            String sql = "SELECT Cart.id as cartID, Card.id as CardID, CartItems.quantity, Card.cmc, Card.type, Card.subtype, Card.text, Card.power, Card.toughness, Cart.username, Listing.price, Card.name as cardName FROM CartItems INNER JOIN Card ON Card.id=CartItems.cardID INNER JOIN Cart ON Cart.id=CartItems.cartID INNER JOIN Listing ON Listing.cardID=Card.id WHERE Cart.username='" + username + "';";
+            Statement stmt  = conn.createStatement();
+            System.out.println("EXEC SQL: " + sql);
+            rs = stmt.executeQuery(sql);
+        } catch (SQLException e) {
+            System.out.println("SQL error: " + e.getMessage());
+        } catch (Exception e) {
+            System.out.println("Java error: " + e.getMessage());
+        }
+
+        List<CartItem> table = new ArrayList<>();
+
+        try {
+            while(rs.next()) {
+                String user_name = rs.getString("username");
+                String cartID = rs.getString("cartID");
+                int quantity = rs.getInt("quantity");
+
+                String cardName = rs.getString("cardName");
+                String cardID = rs.getString("cardID");
+                String cmc = rs.getString("cmc");
+                String type = rs.getString("type");
+                String subtype = rs.getString("subtype");
+                String text = rs.getString("text");
+                int power = rs.getInt("power");
+                int toughness = rs.getInt("toughness");
+                String price = rs.getString("price");
+                table.add(new CartItem(user_name, cartID, quantity, cardName, cardID, cmc, type, subtype, text, power, toughness, price));
+            }
+        } catch(Exception e) {System.out.println("Java error: " + e.getMessage());}
         return table;
     }
 }

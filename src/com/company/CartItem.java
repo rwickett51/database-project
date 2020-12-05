@@ -1,6 +1,6 @@
 package com.company;
 
-public class CartItems {
+public class CartItem {
     //Cart
     public String username;
     public String cartID;
@@ -17,14 +17,10 @@ public class CartItems {
     public int toughness;
 
     //Listing
-    public double price;
-
-    //Set
-    public String Set;
-    public int number;
+    public String price;
 
     //That's a big boy
-    CartItems (String username, String cartID, int quantity, String cardName, String cardID, String cmc, String type, String subtype, String text, int power, int toughness, double price, String Set, int number) {
+    CartItem (String username, String cartID, int quantity, String cardName, String cardID, String cmc, String type, String subtype, String text, int power, int toughness, String price) {
         //Cart
         this.username = username;
         this.cartID = cartID;
@@ -42,10 +38,6 @@ public class CartItems {
 
         //Listing
         this.price = price;
-
-        //Set
-        this.Set = Set;
-        this.number = number;
     }
 
 
