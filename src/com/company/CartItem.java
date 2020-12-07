@@ -18,9 +18,10 @@ public class CartItem {
 
     //Listing
     public String price;
+    public String listingID;
 
     //That's a big boy
-    CartItem (String username, String cartID, int quantity, String cardName, String cardID, String cmc, String type, String subtype, String text, int power, int toughness, String price) {
+    CartItem (String username, String cartID, int quantity, String cardName, String cardID, String cmc, String type, String subtype, String text, int power, int toughness, String price, String listingID) {
         //Cart
         this.username = username;
         this.cartID = cartID;
@@ -38,6 +39,7 @@ public class CartItem {
 
         //Listing
         this.price = price;
+        this.listingID = listingID;
     }
 
 

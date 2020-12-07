@@ -1,10 +1,13 @@
 package com.company;
 
 import javax.swing.*;
+import javax.swing.border.TitledBorder;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
+import java.io.File;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -12,11 +15,10 @@ import java.util.List;
 
 public class GUI extends javax.swing.JFrame {
 
-
-
     //Basic Database Info
     private String currentUser = "username0";
     private String currentCart = "cart0";
+    private String currentCard = "card0";
     private Connect conn;
 
     JMenuBar menuBar;
@@ -66,55 +68,49 @@ public class GUI extends javax.swing.JFrame {
     private JScrollPane cartScrollPane;
     private Box cartBox;
 
+    private JPanel cardSearchEntry(Card info) {
+        JPanel card = new JPanel();
+        card.setLayout(new BorderLayout(0, 25));
+        //card.setMaximumSize(new Dimension(150, 150));
+        card.setSize(new Dimension(150, 150));
+        //card.setPreferredSize(new Dimension(100 ,150));
+        JLabel label = new JLabel(info.cardName);
+        label.setHorizontalAlignment(JLabel.CENTER);
+        JButton button = new JButton("View");
+        button.addActionListener(e -> {
+            loadCard(info);
+            loadListings(info.cardID);
+        });
+        button.setPreferredSize(new Dimension(50, 20));
+        card.add(label, BorderLayout.NORTH);
+        card.add(button, BorderLayout.CENTER);
+        return card;
+    }
+
     private void cardsSearch() {
         try {
             List<Card> data = conn.GetCards(searchBar.getText());
             // Loop through all rows
             box.removeAll();
-            for (int i = 0; i < data.size(); i++) {
-                //searchPanel.removeAll();
-                System.out.println(data.get(i).cardName);
-                Button temp = new Button(data.get(i).cardName);
-                int finalI = i;
-                temp.addActionListener(new ActionListener() {
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
-                        loadCard(data.get(finalI));
-                        loadListings(data.get(finalI).cardID);
-                    }
-                });
-                temp.setPreferredSize(new Dimension(100, 150));
-                box.add(temp);
+            if (data.size() != 0) {
+                for (int i = 0; i < data.size(); i++) {
+                    System.out.println("Card Found: " + data.get(i).cardName);
+                    box.add(cardSearchEntry(data.get(i)));
+                    JPanel spacer = new JPanel();
+                    spacer.setSize(150, 20);
+                    spacer.setBackground(Color.GRAY);
+                    box.add(spacer);
+                    searchPanel.revalidate();
+                }
+            } else {
+                JTextArea label = new JTextArea("\n Search returned no results.");
+                box.add(label);
                 searchPanel.revalidate();
-                //pack();
             }
 
         } catch (Exception exc) {System.out.println("You suck");}
     }
 
-    private void loadCard(Card card) {
-        centerPanel.removeAll();
-        System.out.println(card.cardName);
-        JLabel label = new JLabel(card.cardName);
-        JTextArea desc = new JTextArea(card.text);
-        desc.setPreferredSize(new Dimension(300, 90));
-        desc.setLineWrap(true);
-        label.setSize(200, 40);
-        label.setOpaque(true);
-        centerPanel.add(label);
-        centerPanel.add(desc);
-        centerPanel.revalidate();
-    }
-
-    private void setCart() {
-        List<CartItem> data = conn.GetCart(currentUser);
-        System.out.println("Items in cart: " + data.size());
-        cartBox.removeAll();
-        for(int i = 0; i < data.size(); i++) {
-            JButton bt = new JButton(data.get(i).price);
-            cartBox.add(bt);
-        }
-    }
 
     private void switchMainPanel(int activePanel) {
         if (activePanel == 1) {
@@ -128,8 +124,9 @@ public class GUI extends javax.swing.JFrame {
 
     private void loadListings(String cardID) {
         List<Listing> data = conn.GetListings(cardID);
-        System.out.println(data.size());
         listingBox.removeAll();
+        JLabel label = new JLabel("Listings:");
+        listingBox.add(label);
         for(int i = 0; i < data.size(); i++) {
             JPanel tempPanel = new JPanel();
             Button temp = new Button("Add to cart");
@@ -143,32 +140,94 @@ public class GUI extends javax.swing.JFrame {
             //tempLabelPrice.setOpaque(true);
             tempPanel.add(temp);
             tempPanel.add(tempLabelPrice);
-            tempPanel.setPreferredSize(new Dimension(100, 150));
+            tempPanel.setPreferredSize(new Dimension(100,0));
             listingBox.add(tempPanel);
 
         }
         repaint();
+        pack();
+    }
+
+    private JPanel loadCartItem(CartItem item) {
+        JPanel card = new JPanel();
+        card.setLayout(new BorderLayout(0, 25));
+        card.setSize(new Dimension(150, 150));
+        JLabel label = new JLabel(item.listingID);
+        label.setHorizontalAlignment(JLabel.CENTER);
+        JButton button = new JButton("Remove");
+        button.addActionListener(e -> {
+            conn.removeCart(item.listingID);
+            loadListings(item.cartID);
+            setCart();
+        });
+        button.setPreferredSize(new Dimension(50, 20));
+        card.add(label, BorderLayout.NORTH);
+        card.add(button, BorderLayout.CENTER);
+        return card;
     }
 
 
 
+    private void loadCard(Card card) {
+        currentCard = card.cardID;
+        centerPanel.removeAll();
+        System.out.println(card.cardName);
+        TitledBorder outline = new TitledBorder(card.cardName + " {" + card.cmc + "}");
+        JTextArea oracleText;
+        JTextArea typeLine;
+        JTextArea pt = new JTextArea("");
+        oracleText = new JTextArea(card.text);
+        oracleText.setPreferredSize(new Dimension(300, 90));
+        oracleText.setLineWrap(true);
+        if (card.type != "None") {
+            typeLine = new JTextArea(card.type.replaceAll("(.)([A-Z])", "$1 $2") + " — " + card.subtype.replaceAll("(.)([A-Z])", "$1 $2") + " {" + card.set.toUpperCase() + "|" + card.number + "}");
+        } else {
+            typeLine = new JTextArea(card.type.replaceAll("(.)([A-Z])", "$1 $2") + " {" + card.set + "|" + card.number + "}");
+        }
 
+        typeLine.setPreferredSize(new Dimension(300,30));
+
+        centerPanel.add(typeLine);
+        centerPanel.add(oracleText);
+        if (card.type.contains("Creature")) {
+            pt = new JTextArea("Power/Toughness: [" + card.power + "/" + card.toughness + "]");
+            pt.setPreferredSize(new Dimension(300,40));
+        }
+        centerPanel.add(pt);
+        centerPanel.setBorder(outline);
+        centerPanel.revalidate();
+        pack();
+    }
+
+    private void setCart() {
+        List<CartItem> data = conn.GetCart(currentUser);
+        System.out.println("Items in cart: " + data.size());
+        cartBox.removeAll();
+        for(int i = 0; i < data.size(); i++) {
+            cartBox.add(loadCartItem(data.get(i)));
+            JPanel spacer = new JPanel();
+            spacer.setSize(150, 20);
+            spacer.setBackground(Color.GRAY);
+            cartBox.add(spacer);
+        }
+    }
 
 
     public GUI() {
         conn = new Connect();
-
         conn.connect();
 
 
 
         //Initialize Main Frames
         menuBar = new JMenuBar();
-        menu = new JMenu("User");
+        menu = new JMenu("Menu");
+        JMenu cardMenu = new JMenu("Card");
         menu.setMnemonic(KeyEvent.VK_A);
 
         menu.getAccessibleContext().setAccessibleDescription("Menu");
         menuBar.add(menu);
+        menuBar.add(cardMenu);
 
         setJMenuBar(menuBar);
 
@@ -252,8 +311,6 @@ public class GUI extends javax.swing.JFrame {
         topCenterPanel.add(centerPanel);
 
         // Setup Toolbar
-
-
         toolBar = new JToolBar("TaskBar", JToolBar.HORIZONTAL);
         toolBar.setLayout(new GridLayout(1, 12));
         toolBar.setSize(getWidth(), 30);
@@ -288,20 +345,24 @@ public class GUI extends javax.swing.JFrame {
 
         // Setup Cart Panel
         cartBox = new Box(BoxLayout.Y_AXIS);
-
         cartScrollPane = new JScrollPane(cartBox);
-        cartScrollPane.setPreferredSize(new Dimension(c.getPreferredSize().width, c.getPreferredSize().height));
+        cartScrollPane.setPreferredSize(new Dimension(c.getPreferredSize().width, 500));
         cartScrollPane.setBackground(Color.GRAY);
-
         cartFrame.add(cartScrollPane);
+        JButton buyButton = new JButton("Buy All");
+        cartFrame.add(buyButton);
+
+        buyButton.addActionListener(e -> {
+            conn.BuyItems(currentUser);
+            setCart();
+        });
 
         //Setup Menu
         //a group of JMenuItems
         menuItem = new JMenuItem("Change user");
-        //menuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_1, ActionEvent.ALT_MASK));
-        //menuItem.getAccessibleContext().setAccessibleDescription("This doesn't really do anything");
+        JMenuItem menuItem2 = new JMenuItem("Select db");
         menu.add(menuItem);
-
+        menu.add(menuItem2);
         menuItem.addActionListener(e -> {
             String response = JOptionPane.showInputDialog(c, "What user would you like to manage?", null);
             System.out.println("Response: " + response);
@@ -320,6 +381,34 @@ public class GUI extends javax.swing.JFrame {
             currentCart = user.cartID;
             setCart();
             cartBox.revalidate();
+        });
+        menuItem2.addActionListener(e -> {
+            File workingDirectory = new File(System.getProperty("user.dir"));
+            JFileChooser chooser = new JFileChooser();
+            chooser.setCurrentDirectory(workingDirectory);
+            FileNameExtensionFilter filter = new FileNameExtensionFilter(
+                    "SQLite Database", "db");
+            chooser.setFileFilter(filter);
+            int returnVal = chooser.showOpenDialog(c);
+            if(returnVal == JFileChooser.APPROVE_OPTION) {
+                System.out.println("You chose to open this file: " +
+                        chooser.getSelectedFile().getName());
+                System.out.println(chooser.getSelectedFile().getAbsolutePath());
+            }
+            conn = new Connect(chooser.getSelectedFile().getAbsolutePath());
+        });
+
+        // Setup Card Menu
+        JMenuItem cardMenuItem = new JMenuItem("Add Listing");
+        cardMenu.add(cardMenuItem);
+
+        cardMenuItem.addActionListener(e -> {
+            String response = JOptionPane.showInputDialog(c, "What is the price of the new listing?", null);
+            System.out.println(response);
+            if (response != null && response.matches("^\\$?(?:(?:\\d+(?:,\\d+)?(?:\\.\\d+)?)|(?:\\.\\d+))$")) {
+                conn.CreateListing(currentUser, currentCard, response, "Near Mint");
+                loadListings(currentCard);
+            }
         });
 
         // Pack GUI and center
